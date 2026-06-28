@@ -1,6 +1,7 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from app.api import students
+from app.api import students, drives
 
 app = FastAPI(
     title="Placement Agent API",
@@ -18,6 +19,7 @@ app.add_middleware(
 )
 
 app.include_router(students.router, prefix="/api/v1", tags=["students"])
+app.include_router(drives.router, prefix="/api/v1", tags=["drives"])
 
 @app.get("/")
 def root():
