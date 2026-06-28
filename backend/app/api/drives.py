@@ -3,6 +3,7 @@ from app.models.drive import DriveCreate, DriveResponse
 from app.agents.drive_parser import parse_drive_announcement
 from app.services.eligibility import get_eligible_students
 from app.core.database import supabase
+from app.services.notifications import notify_eligible_students
 
 router = APIRouter()
 
@@ -43,10 +44,14 @@ def parse_and_create_drive(drive_input: DriveCreate):
         max_backlogs_allowed=parsed.get("max_backlogs_allowed", 0)
     )
 
-    # Step 4: Return everything
+    # Step 4: Notify eligible students
+    notification_summary = notify_eligible_students(eligible_students, saved_drive)
+
+    # Step 5: Return everything
     return {
         "drive": saved_drive,
         "parsed_by_ai": True,
         "eligible_students_count": len(eligible_students),
-        "eligible_students": eligible_students
+        "eligible_students": eligible_students,
+        "notifications": notification_summary
     }
