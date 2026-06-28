@@ -4,6 +4,11 @@ from app.agents.drive_parser import parse_drive_announcement
 from app.services.eligibility import get_eligible_students
 from app.core.database import supabase
 from app.services.notifications import notify_eligible_students
+from app.agents.query_agent import answer_placement_query
+from pydantic import BaseModel
+
+class QueryInput(BaseModel):
+    question: str
 
 router = APIRouter()
 
@@ -55,3 +60,12 @@ def parse_and_create_drive(drive_input: DriveCreate):
         "eligible_students": eligible_students,
         "notifications": notification_summary
     }
+    
+@router.post("/drives/query")
+def query_drives_nl(query_input: QueryInput):
+    """
+    Accepts a natural language question about placement drives
+    and returns an AI-generated answer.
+    """
+    result = answer_placement_query(query_input.question)
+    return result
