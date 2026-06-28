@@ -69,3 +69,8 @@ def query_drives_nl(query_input: QueryInput):
     """
     result = answer_placement_query(query_input.question)
     return result
+
+@router.get("/drives")
+def get_all_drives():
+    response = supabase.table("drives").select("*").order("created_at", desc=True).execute()
+    return response.data
