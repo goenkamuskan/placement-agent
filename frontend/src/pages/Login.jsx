@@ -60,6 +60,14 @@ function Login({ onLogin }) {
         >
           {loading ? 'Signing in...' : 'Sign In'}
         </button>
+
+        <p className="text-center text-gray-500 text-sm">
+          New student?{' '}
+          <a href="/register" className="text-blue-400 hover:underline">
+            Create account
+          </a>
+        </p>
+        
       </div>
     </div>
   )

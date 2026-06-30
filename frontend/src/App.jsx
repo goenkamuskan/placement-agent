@@ -22,6 +22,17 @@ function App() {
     setUser(null)
   }
 
+  // Allow register page without login
+  if (!user && window.location.pathname === '/register') {
+    return (
+      <BrowserRouter>
+        <Routes>
+          <Route path="/register" element={<Register />} />
+        </Routes>
+      </BrowserRouter>
+    )
+  }
+
   if (!user) return <Login onLogin={handleLogin} />
 
   return (

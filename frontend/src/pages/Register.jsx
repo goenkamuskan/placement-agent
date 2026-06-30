@@ -7,6 +7,7 @@ function Register() {
   const [form, setForm] = useState({
     full_name: '',
     email: '',
+    password: '',
     branch: '',
     cgpa: '',
     active_backlogs: 0,
@@ -49,6 +50,7 @@ function Register() {
         {[
           { name: 'full_name', label: 'Full Name', type: 'text', placeholder: 'Muskan Goenka' },
           { name: 'email', label: 'Email', type: 'email', placeholder: 'you@college.edu' },
+          { name: 'password', label: 'Password', type: 'password', placeholder: '••••••••' },
           { name: 'phone', label: 'Phone', type: 'text', placeholder: '9876543210' },
           { name: 'cgpa', label: 'CGPA', type: 'number', placeholder: '8.5' },
           { name: 'active_backlogs', label: 'Active Backlogs', type: 'number', placeholder: '0' },

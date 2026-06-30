@@ -3,6 +3,7 @@ from typing import List, Optional
 
 class StudentCreate(BaseModel):
     email: EmailStr
+    password: str  # added
     full_name: str
     branch: str
     cgpa: float
@@ -21,3 +22,4 @@ class StudentResponse(BaseModel):
     graduation_year: int
     skills: List[str]
     phone: Optional[str]
+    role: Optional[str]
