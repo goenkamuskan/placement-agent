@@ -21,7 +21,7 @@ def login(credentials: LoginInput):
 
     # Get role from students table
     student = supabase.table("students")\
-        .select("id, full_name, role, branch, cgpa")\
+        .select("id, full_name, role, branch, cgpa, active_backlogs")\
         .eq("email", credentials.email)\
         .single()\
         .execute()
@@ -30,26 +30,26 @@ def login(credentials: LoginInput):
         raise HTTPException(status_code=404, detail="Student profile not found")
 
     return {
-        "user": {
-            "id": student.data["id"],
-            "email": credentials.email,
-            "full_name": student.data["full_name"],
-            "role": student.data["role"],
-            "branch": student.data["branch"],
-            "cgpa": student.data["cgpa"],
-        },
-        "access_token": response.session.access_token
-    }
-
+    "user": {
+        "id": student.data["id"],
+        "email": credentials.email,
+        "full_name": student.data["full_name"],
+        "role": student.data["role"],
+        "branch": student.data["branch"],
+        "cgpa": student.data["cgpa"],
+        "active_backlogs": student.data["active_backlogs"],
+    },
+    "access_token": response.session.access_token
+}
 
 @router.get("/auth/me")
 def get_me(email: str):
     """Get user profile by email"""
     student = supabase.table("students")\
-        .select("*")\
-        .eq("email", email)\
-        .single()\
-        .execute()
+    .select("id, full_name, role, branch, cgpa, active_backlogs")\
+    .eq("email", credentials.email)\
+    .single()\
+    .execute()
 
     if not student.data:
         raise HTTPException(status_code=404, detail="User not found")

@@ -6,11 +6,17 @@ from app.core.database import supabase
 from app.services.notifications import notify_eligible_students
 from app.agents.query_agent import answer_placement_query
 from pydantic import BaseModel
+from pydantic import BaseModel as PydanticBaseModel
+
 
 class QueryInput(BaseModel):
     question: str
 
 router = APIRouter()
+
+class ApplyInput(PydanticBaseModel):
+    student_id: str
+    drive_id: str
 
 @router.post("/drives/parse")
 def parse_and_create_drive(drive_input: DriveCreate):
@@ -73,4 +79,33 @@ def query_drives_nl(query_input: QueryInput):
 @router.get("/drives")
 def get_all_drives():
     response = supabase.table("drives").select("*").order("created_at", desc=True).execute()
+    return response.data
+
+@router.post("/applications")
+def apply_to_drive(data: ApplyInput):
+    # Check if already applied
+    existing = supabase.table("applications")\
+        .select("id")\
+        .eq("student_id", data.student_id)\
+        .eq("drive_id", data.drive_id)\
+        .execute()
+
+    if existing.data:
+        raise HTTPException(status_code=400, detail="You have already applied to this drive")
+
+    response = supabase.table("applications").insert({
+        "student_id": data.student_id,
+        "drive_id": data.drive_id,
+        "status": "applied"
+    }).execute()
+
+    return response.data[0]
+
+
+@router.get("/applications/student/{student_id}")
+def get_student_applications(student_id: str):
+    response = supabase.table("applications")\
+        .select("*, drives(*)")\
+        .eq("student_id", student_id)\
+        .execute()
     return response.data
