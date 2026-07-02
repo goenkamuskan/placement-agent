@@ -92,3 +92,48 @@ def notify_eligible_students(students: list, drive: dict) -> dict:
         "sent": sent,
         "failed": failed
     }
+
+def send_status_email(student: dict, drive: dict, status: str, message: str) -> bool:
+    """Sends a status update email to a student."""
+    
+    subject_map = {
+        "shortlisted": f"🎉 You're Shortlisted for {drive['company_name']}!",
+        "offered": f"🎊 Offer Letter — {drive['company_name']}",
+        "rejected": f"Update on your {drive['company_name']} Application",
+    }
+
+    message_obj = Mail(
+        from_email=SENDGRID_FROM_EMAIL,
+        to_emails=student["email"],
+        subject=subject_map.get(status, f"Application Update — {drive['company_name']}"),
+        html_content=f"""
+        <h2>Hi {student['full_name']}! 👋</h2>
+        <p>{message}</p>
+        
+        <table style="border-collapse: collapse; width: 100%; margin-top: 16px;">
+            <tr>
+                <td><strong>Company</strong></td>
+                <td>{drive['company_name']}</td>
+            </tr>
+            <tr>
+                <td><strong>Role</strong></td>
+                <td>{drive.get('role', 'N/A')}</td>
+            </tr>
+            <tr>
+                <td><strong>Package</strong></td>
+                <td>{drive.get('package_lpa', 'N/A')} LPA</td>
+            </tr>
+        </table>
+
+        <p style="margin-top: 16px;">Log in to your placement portal to check your status.</p>
+        <p>Best of luck! 🚀</p>
+        """
+    )
+
+    try:
+        sg = SendGridAPIClient(SENDGRID_API_KEY)
+        sg.send(message_obj)
+        return True
+    except Exception as e:
+        print(f"Status email failed: {e}")
+        return False

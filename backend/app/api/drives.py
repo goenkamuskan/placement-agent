@@ -122,12 +122,42 @@ def get_drive_applicants(drive_id: str):
 
 @router.patch("/applications/{application_id}/status")
 def update_application_status(application_id: str, status: dict):
-    """Coordinator can update student status: shortlisted, rejected, offered"""
-    response = supabase.table("applications")\
-        .update({"status": status["status"]})\
+    # Get application details first
+    app = supabase.table("applications")\
+        .select("*, students(*), drives(*)")\
+        .eq("id", application_id)\
+        .single()\
+        .execute()
+
+    if not app.data:
+        raise HTTPException(status_code=404, detail="Application not found")
+
+    new_status = status["status"]
+
+    # Update status
+    supabase.table("applications")\
+        .update({"status": new_status})\
         .eq("id", application_id)\
         .execute()
-    return response.data[0]
+
+    # Send email notification to student
+    student = app.data["students"]
+    drive = app.data["drives"]
+
+    status_messages = {
+        "shortlisted": f"🎉 Congratulations! You have been shortlisted for {drive['company_name']}.",
+        "offered": f"🎊 Amazing news! You have received an offer from {drive['company_name']}!",
+        "rejected": f"Thank you for applying to {drive['company_name']}. Unfortunately, you were not selected this time. Keep going!",
+        "applied": None
+    }
+
+    message = status_messages.get(new_status)
+
+    if message and student.get("email"):
+        from app.services.notifications import send_status_email
+        send_status_email(student, drive, new_status, message)
+
+    return app.data
 
 @router.post("/drives/{drive_id}/upload-results")
 async def upload_results(drive_id: str, file: UploadFile = File(...)):
@@ -187,6 +217,39 @@ async def upload_results(drive_id: str, file: UploadFile = File(...)):
             .execute()
 
         updated += 1
+        # Update application status
+        supabase.table("applications")\
+            .update({"status": status})\
+            .eq("student_id", student_id)\
+            .eq("drive_id", drive_id)\
+            .execute()
+
+        updated += 1
+
+        # Send status email — ADD HERE
+        if status in ['shortlisted', 'rejected', 'offered']:
+            student_data = supabase.table("students")\
+                .select("*")\
+                .eq("id", student_id)\
+                .single()\
+                .execute()
+
+            drive_data = supabase.table("drives")\
+                .select("*")\
+                .eq("id", drive_id)\
+                .single()\
+                .execute()
+
+            if student_data.data and drive_data.data:
+                status_messages = {
+                    "shortlisted": f"🎉 Congratulations! You have been shortlisted for {drive_data.data['company_name']}.",
+                    "offered": f"🎊 Amazing news! You have received an offer from {drive_data.data['company_name']}!",
+                    "rejected": f"Thank you for applying to {drive_data.data['company_name']}. Unfortunately, you were not selected this time. Keep going!",
+                }
+                from app.services.notifications import send_status_email
+                send_status_email(student_data.data, drive_data.data, status, status_messages[status])
+                result = send_status_email(student_data.data, drive_data.data, status, status_messages[status])
+                print(f"Email sent to {email}: {result}")
 
     return {
         "message": "Results uploaded successfully",

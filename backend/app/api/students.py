@@ -1,6 +1,5 @@
 from fastapi import APIRouter, HTTPException
 from app.models.student import StudentCreate, StudentResponse
-from app.core.database import supabase
 from app.core.database import supabase, supabase_admin
 
 router = APIRouter()
@@ -17,18 +16,18 @@ def create_student(student: StudentCreate):
         raise HTTPException(status_code=400, detail="Student with this email already exists")
 
     # Create Supabase Auth account
-    auth_response = supabase_admin.auth.admin.create_user({
-        "email": student.email,
-        "password": student.password,
-        "email_confirm": True  # skip email verification for now
-    })
-
-    if not auth_response.user:
-        raise HTTPException(status_code=500, detail="Failed to create auth account")
+    try:
+        auth_response = supabase_admin.auth.admin.create_user({
+            "email": student.email,
+            "password": student.password,
+            "email_confirm": True
+        })
+    except Exception as e:
+        raise HTTPException(status_code=400, detail="This email is already registered. Please login instead.")
 
     # Create student row in DB
     student_data = student.model_dump()
-    student_data.pop("password")  # never store plain password in DB
+    student_data.pop("password")
     student_data["role"] = "student"
 
     response = supabase.table("students")\
