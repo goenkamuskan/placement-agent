@@ -1,4 +1,4 @@
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, UploadFile, File, Form
 from app.models.drive import DriveCreate, DriveResponse
 from app.agents.drive_parser import parse_drive_announcement
 from app.services.eligibility import get_eligible_students
@@ -7,7 +7,8 @@ from app.services.notifications import notify_eligible_students
 from app.agents.query_agent import answer_placement_query
 from pydantic import BaseModel
 from pydantic import BaseModel as PydanticBaseModel
-
+import pandas as pd
+import io
 
 class QueryInput(BaseModel):
     question: str
@@ -109,3 +110,87 @@ def get_student_applications(student_id: str):
         .eq("student_id", student_id)\
         .execute()
     return response.data
+
+@router.get("/drives/{drive_id}/applicants")
+def get_drive_applicants(drive_id: str):
+    response = supabase.table("applications")\
+        .select("*, students(*)")\
+        .eq("drive_id", drive_id)\
+        .execute()
+    return response.data
+
+
+@router.patch("/applications/{application_id}/status")
+def update_application_status(application_id: str, status: dict):
+    """Coordinator can update student status: shortlisted, rejected, offered"""
+    response = supabase.table("applications")\
+        .update({"status": status["status"]})\
+        .eq("id", application_id)\
+        .execute()
+    return response.data[0]
+
+@router.post("/drives/{drive_id}/upload-results")
+async def upload_results(drive_id: str, file: UploadFile = File(...)):
+    """
+    Coordinator uploads Excel/CSV with company results.
+    System auto-updates student statuses.
+    """
+    contents = await file.read()
+
+    # Parse Excel or CSV
+    try:
+        if file.filename.endswith('.csv'):
+            df = pd.read_csv(io.BytesIO(contents))
+        else:
+            df = pd.read_excel(io.BytesIO(contents))
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=f"Could not parse file: {str(e)}")
+
+    # Normalize column names to lowercase
+    df.columns = df.columns.str.lower().str.strip()
+
+    # Must have email and status columns
+    if 'email' not in df.columns or 'status' not in df.columns:
+        raise HTTPException(
+            status_code=400,
+            detail="Excel file must have 'email' and 'status' columns"
+        )
+
+    updated = 0
+    not_found = []
+
+    for _, row in df.iterrows():
+        email = str(row['email']).strip().lower()
+        status = str(row['status']).strip().lower()
+
+        # Validate status
+        if status not in ['applied', 'shortlisted', 'rejected', 'offered']:
+            status = 'applied'  # default if invalid
+
+        # Find student by email
+        student = supabase.table("students")\
+            .select("id")\
+            .eq("email", email)\
+            .execute()
+
+        if not student.data:
+            not_found.append(email)
+            continue
+
+        student_id = student.data[0]["id"]
+
+        # Update application status
+        supabase.table("applications")\
+            .update({"status": status})\
+            .eq("student_id", student_id)\
+            .eq("drive_id", drive_id)\
+            .execute()
+
+        updated += 1
+
+    return {
+        "message": "Results uploaded successfully",
+        "updated": updated,
+        "not_found": not_found,
+        "total_in_file": len(df)
+    }
